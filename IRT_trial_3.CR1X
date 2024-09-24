@@ -1,0 +1,49 @@
+'Declare Constants
+
+'IRT connected to C1, TDR connected to C3
+'Declare Public Variables
+Public IRT_TempC (2)  
+
+Public BattV          ' Battery Voltage
+
+
+'IRT variables
+Public millivolt, SBtemp  ' Variables to store IRT target and body temperatures
+
+
+
+'Define Data Table
+DataTable(Test_Sensors, 1, -1) 
+    DataInterval(0, 2, Sec, 10)  ' Collect data every 2 seconds
+
+    ' Record Battery Voltage
+    Sample(1, BattV, IEEE4)
+    
+    ' Record IRT values (Target and Body Temperature)
+    Sample(1, millivolt, IEEE4)
+    Sample(1, SBtemp , IEEE4)
+    
+
+EndTable
+
+'Main Program
+BeginProg
+
+    Scan(2, Sec, 0, 0)  ' Scan every 2 seconds
+
+    ' Measure battery voltage
+    Battery(BattV)
+
+    ' Read IRT Sensor (connected to C1, SDI-12 address 1)
+    SDI12Recorder(IRT_TempC(), C1, 1, "M2!", 1, 0)  ' SDI-12 command to get IRT readings
+    millivolt = IRT_TempC(1)   ' Assign target temperature to variable
+    SBtemp    =IRT_TempC(2) 
+
+
+
+    ' Call the data table to store values
+    CallTable Test_Sensors
+
+NextScan
+EndProg
+

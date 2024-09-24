@@ -1,0 +1,72 @@
+'IRT computation variables
+Public SBTempC As Float  
+Public TargmV As Float
+Public m As Float
+Public b As Float
+Public SBTempK As Float
+Public TargTempK As Float
+
+'Declare Constants
+Const mC2_IRT = 103951  ' Example constant value for mC2
+Const mC1_IRT = 12114268  ' Example constant value for mC1
+Const mC0_IRT = 1920373071    ' Example constant value for mC0
+Const bC2_IRT = 3229  ' Example constant value for bC2
+Const bC1_IRT = 115133    ' Example constant value for bC1
+Const bC0_IRT = 5976462     ' Example constant value for bC0
+
+'IRT connected to C1
+'Declare Public Variables
+Public IRT_TempC(2)  
+Public BattV  ' Battery Voltage
+Public TempC_target
+Public TempC_body
+
+'IRT variables
+
+'Public SBTempC, TargmV           ' Variables for sensor body temp and target millivolts
+
+'Define Data Table
+DataTable(Test_Sensors, 1, -1) 
+    DataInterval(0, 2, Sec, 10)  ' Collect data every 2 seconds
+
+    ' Record Battery Voltage
+    Sample(1, BattV, IEEE4)
+    
+    ' Record IRT values (Target and Body Temperature)
+    Sample(1, SBTempC, IEEE4)
+    Sample(1, TargmV, IEEE4)
+    Sample (1, TempC_target, IEEE4)
+EndTable
+
+'Function for computing IRT target temperature
+Function ComputeIRTTemp(SBTempC, TargmV, mC2, mC1, mC0, bC2, bC1, bC0) As Float
+  m = mC2 * SBTempC^2 + mC1 * SBTempC + mC0  
+  b = bC2 * SBTempC^2 + bC1 * SBTempC + bC0
+  SBTempK = SBTempC + 273.15
+  TargTempK = ((SBTempK^4) + m * TargmV + b)^0.25
+  ComputeIRTTemp = TargTempK - 273.15  ' Return temperature in Celsius
+EndFunction
+
+'Main Program
+BeginProg
+
+    Scan(2, Sec, 0, 0)  ' Scan every 2 seconds
+
+    ' Measure battery voltage
+    Battery(BattV)
+
+    ' Read IRT Sensor (connected to C1, SDI-12 address 1)
+    SDI12Recorder(IRT_TempC(), C1, 1, "M2!", 1, 0)  ' Read target and body temperature
+    SBTempC = IRT_TempC(2)  ' Sensor body temperature in Celsius
+    TargmV = IRT_TempC(1)   ' Target millivolt reading
+    
+    ' Compute actual target temperature using the function
+    TempC_target = ComputeIRTTemp(SBTempC, TargmV, mC2_IRT, mC1_IRT, mC0_IRT, bC2_IRT, bC1_IRT, bC0_IRT)
+    TempC_body = SBTempC  ' Assign the body temperature to the variable
+
+    ' Call the data table to store values
+    CallTable Test_Sensors
+
+NextScan
+EndProg
+
