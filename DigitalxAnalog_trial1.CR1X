@@ -1,0 +1,129 @@
+'Combined Code for Reading Analog and Digital IRTs
+
+'Declare Variables
+Public Therm109_1370,Voltdif_1370  As Float' Analog IRT 1370
+Public Therm109_1331,Voltdif_1331  As Float' Analog IRT 1331
+Public BattV
+Public Temp_1370
+Public Temp_1331
+Public TempC_target_1331
+Public TempC_target_1370
+Public IRT_TempC (2)
+
+
+'Digital IRT computation variables
+Public SBTempC As Float  ' Sensor body temp for Digital IRT
+Public TargmV As Float  ' Target voltage for Digital IRT
+Public m As Float  ' Slope for Digital IRT computation
+Public b As Float  ' Intercept for Digital IRT computation
+Public SBTempK As Float  ' Sensor body temp in Kelvin
+Public TargTempK As Float  ' Target temp in Kelvin
+Public TempC_target As Float  ' Target temperature in Celsius (Digital IRT)
+Public TempC_body As Float  ' Sensor body temp (Digital IRT)
+
+  'Analog Constants for IRT on 1370
+  Const mC2_1370IRT = 90683.1  ' Placeholder for mC2 (A IRT)
+  Const mC1_1370IRT = 9654350  ' Placeholder for mC1 (A IRT)
+  Const mC0_1370IRT = 1759570000  ' Placeholder for mC0 (A IRT)
+  Const bC2_1370IRT = 4206.67  ' Placeholder for bC2 (A IRT)
+  Const bC1_1370IRT = 170835  ' Placeholder for bC1 (A IRT)
+  Const bC0_1370IRT = 3066050  ' Placeholder for bC0 (A IRT)
+  
+  'Analog Constants for IRT on 1370
+  Const mC2_1331IRT = 124225  ' Placeholder for mC2 (A IRT)
+  Const mC1_1331IRT = 102282300  ' Placeholder for mC1 (A IRT)
+  Const mC0_1331IRT = 1908990000  ' Placeholder for mC0 (A IRT)
+  Const bC2_1331IRT = 3663.55  ' Placeholder for bC2 (A IRT)
+  Const bC1_1331IRT = 157970  ' Placeholder for bC1 (A IRT)
+  Const bC0_1331IRT = 2313070  ' Placeholder for bC0 (A IRT)
+  
+
+  'Digital Constants for IRT on C1
+  Const mC2_IRT = 103951  ' Placeholder for mC2 (Digital IRT)
+  Const mC1_IRT = 12114268  ' Placeholder for mC1 (Digital IRT)
+  Const mC0_IRT = 1920373071  ' Placeholder for mC0 (Digital IRT)
+  Const bC2_IRT = 3229  ' Placeholder for bC2 (Digital IRT)
+  Const bC1_IRT = 115133  ' Placeholder for bC1 (Digital IRT)
+  Const bC0_IRT = 5976462  ' Placeholder for bC0 (Digital IRT)
+
+'IRT Analog and Digital Table
+DataTable(IRT_Data, True, -1)
+  DataInterval(0, 2, Sec, 10)  ' Log data every 2 seconds
+
+  ' Record battery voltage
+  Sample(1, BattV, IEEE4)
+
+  ' Record analog IRT values
+  Average(1, Therm109_1370, IEEE4, False)
+  Average(1,Voltdif_1370, IEEE4, False)
+  Average(1,Therm109_1331, IEEE4, False)
+  Average(1,Voltdif_1331, IEEE4, False)
+
+  ' Record digital IRT values (Target and Body Temperature)
+  Sample(1, SBTempC, IEEE4)
+  Sample(1, TargmV, IEEE4)
+  Sample(1, TempC_target, IEEE4)
+  Sample (1, Temp_1370,IEEE4)
+  Sample(1, Temp_1331,IEEE4)
+  Sample(1, TempC_target_1331 ,IEEE4)
+  Sample(1, TempC_target_1370 ,IEEE4)
+  
+EndTable
+
+'Function for computing IRT target temperature (for Digital IRT)
+Function ComputeIRTTemp(SBTempC, TargmV, mC2, mC1, mC0, bC2, bC1, bC0) As Float
+  m = mC2 * SBTempC^2 + mC1 * SBTempC + mC0  
+  b = bC2 * SBTempC^2 + bC1 * SBTempC + bC0
+  SBTempK = SBTempC + 273.15
+  TargTempK = ((SBTempK^4) + m * TargmV + b)^0.25
+  ComputeIRTTemp = TargTempK - 273.15  ' Return temperature in Celsius
+EndFunction
+
+''Function for computing IRT target temperature (for Analog IRT)
+'Function ComputeAnalogIRTTemp(Therm109, TargmV, mC2, mC1, mC0, bC2, bC1, bC0) As Float
+'  m = mC2 * Therm109^2 + mC1 * Therm109 + mC0  
+'  b = bC2 * Therm109^2 + bC1 * Therm109 + bC0
+'  SBTempK = SBTempC + 273.15
+'  TargTempK = ((SBTempK^4) + m * TargmV + b)^0.25
+'  ComputeAnalogIRTTemp = TargTempK - 273.15  ' Return temperature in Celsius
+'EndFunction
+
+'Begin Program
+BeginProg
+
+  Scan(2, Sec, 0, 0)  ' Scan every 2 seconds
+
+    ' Measure battery voltage
+    Battery(BattV)
+
+    ' **** Analog IRT 1370 (SE3 and Diff1) ****
+    Therm109(Therm109_1370, 1, 3, VX1, 0, _60Hz, 1, 0)  ' Measure sensor body temperature (Analog IRT)
+    VoltDiff(Voltdif_1370, 1, mV5000, 1, True, 0, _60Hz, 1, 0)  ' Measure target voltage (Analog IRT)
+
+    ' **** Analog IRT 1331 (SE7 and Diff3) ****
+    Therm109(Therm109_1331, 1, 7, VX2, 0, _60Hz, 1, 0)  ' Measure sensor body temperature (Analog IRT)
+    VoltDiff(Voltdif_1331, 1, mV5000, 3, True, 0, _60Hz, 1, 0)  ' Measure target voltage (Analog IRT)
+
+    ' **** Digital IRT (connected to C1) ****
+    SDI12Recorder(IRT_TempC(), C1, 1, "M2!", 1, 0)  ' Read target and body temperature (Digital IRT)
+    SBTempC = IRT_TempC(2)  ' Sensor body temperature (Digital IRT)
+    TargmV = IRT_TempC(1)  ' Target voltage (Digital IRT)
+
+    ' Compute actual target temperature for Digital IRT
+    TempC_target = ComputeIRTTemp(SBTempC, TargmV, mC2_IRT, mC1_IRT, mC0_IRT, bC2_IRT, bC1_IRT, bC0_IRT)
+    'TempC_body = SBTempC  ' Assign the body temperature for Digital IRT
+    
+    ' Compute actual target temperature for Analog IRT 1370
+    TempC_target_1370 = ComputeIRTTemp(Therm109_1370, Voltdif_1370, mC2_1370IRT, mC1_1370IRT, mC0_1370IRT, bC2_1370IRT, bC1_1370IRT, bC0_1370IRT)
+    'TempC_body = SBTempC  ' Assign the body temperature for Digital IRT
+
+    ' Compute actual target temperature for Analog IRT 1331
+    TempC_target_1331 = ComputeIRTTemp(Therm109_1331, Voltdif_1331, mC2_1331IRT, mC1_1331IRT, mC0_1331IRT, bC2_1331IRT, bC1_1331IRT, bC0_1331IRT)
+    'TempC_body = SBTempC  ' Assign the body temperature for Digital IRT
+    ' Store the data
+    
+    CallTable IRT_Data
+
+  NextScan
+EndProg
+
